@@ -5,7 +5,6 @@ OpenAI.key
 
 # data and outputs (rebuild with run.py)
 data/
-figures_out/
 *.npy
 
 # python

@@ -9,12 +9,9 @@
    which becomes the domain's name.
 Outputs
   data/processed/domains/assignments.parquet   doc_id, source, cluster, distance
-  data/processed/domains/cluster_labels.csv    cluster, label, short_label, description, counts
-  data/processed/domains/projection.csv        2-D coordinates for Figure 1b and 2d
+  data/processed/domains/cluster_labels.csv    cluster, label, description, counts
   data/processed/domains/model.npz             PCA + centroids (to assign new documents)
 """
-import json
-
 import numpy as np
 import pandas as pd
 from sklearn.cluster import MiniBatchKMeans
@@ -137,45 +134,13 @@ def label(cfg):
                 got[c] = rec[-1]["result"]
 
     counts = asg.groupby(["cluster", "source"]).size().unstack(fill_value=0)
-    rows = [{"cluster": k, "label": got[f"c{k:02d}"]["label"].strip(), "short_label": got[f"c{k:02d}"]["label"].strip(),
+    rows = [{"cluster": k, "label": got[f"c{k:02d}"]["label"].strip(),
              "description": got[f"c{k:02d}"]["description"].strip(),
              "n_rules": int(counts.loc[k].get("FR", 0)), "n_sections": int(counts.loc[k].get("10-K", 0))} for k in range(D.k)]
     pd.DataFrame(rows).to_csv(cfg.paths.domains / "cluster_labels.csv", index=False)
     print(pd.DataFrame(rows)[["cluster", "label", "n_rules", "n_sections"]].to_string(index=False))
 
 
-def projection(cfg, keep_ids=()):
-    """2-D projection (UMAP if installed, else t-SNE) of a balanced sample, for Figures 1b and 2d."""
-    D = cfg.domains.projection
-    ids, R, S = _all_docs(cfg)
-    asg = pd.read_parquet(cfg.paths.domains / "assignments.parquet")
-    rng = np.random.default_rng(cfg.domains.seed)
-    nR = len(R)
-    half = D.sample // 2
-    samp = np.r_[rng.choice(nR, min(half, nR), replace=False), nR + rng.choice(len(S), min(half, len(S)), replace=False)]
-    keep = np.where(ids["doc_id"].isin(list(keep_ids)))[0]
-    samp = np.unique(np.r_[samp, keep])
-    m = np.load(cfg.paths.domains / "model.npz")
-    Z = _unit((_unit(_rows(R, S, samp)) - m["pca_mean"]) @ m["pca_components"].T)
-    method = D.method
-    if method == "umap":
-        try:
-            import umap
-            XY = umap.UMAP(n_neighbors=30, min_dist=0.15, metric="cosine", random_state=cfg.domains.seed).fit_transform(Z)
-        except ImportError:
-            method = "tsne"
-    if method == "tsne":
-        from sklearn.manifold import TSNE
-        XY = TSNE(n_components=2, perplexity=40, init="pca", random_state=cfg.domains.seed).fit_transform(Z[:, :50])
-    out = ids.iloc[samp][["doc_id", "source"]].reset_index(drop=True)
-    out["x"], out["y"] = XY[:, 0], XY[:, 1]
-    out["cluster"] = asg.set_index("doc_id").loc[out["doc_id"], "cluster"].to_numpy()
-    out.round(4).to_csv(cfg.paths.domains / "projection.csv", index=False)
-    print(f"[domains] projection of {len(out):,} documents ({method})")
-
-
 def run(cfg):
     cluster(cfg)
     label(cfg)
-    keep = [f"{f['cik']}_{f['year']}_item1" for f in cfg.raw["figures"]["fig2d_firms"]]
-    projection(cfg, keep)

@@ -1,7 +1,7 @@
 """End-to-end test of every step after the downloads, with a fake OpenAI client.
 
-It checks that extraction, embedding, clustering, labeling, scoring, linking and the
-figure export fit together. No network or API key is used.  Run: pytest -q
+It checks that extraction, embedding, clustering, labeling, scoring and linking
+fit together. No network or API key is used.  Run: pytest -q
 """
 import hashlib
 import json
@@ -13,8 +13,6 @@ import pandas as pd
 import pytest
 
 from regexposure import domains, embed, extract, link, llm, prompts, score
-from regexposure.figures import make as figures
-from regexposure.figures.data import load_data
 from regexposure.settings import load_config
 
 TOPICS = {
@@ -95,8 +93,6 @@ def cfg(tmp_path, monkeypatch):
         setattr(c.paths, name, p)
     c.openai.embedding_dim, c.domains.k, c.domains.pca_dims, c.domains.fit_sample = DIM, 4, 8, 1000
     c.domains.label_examples, c.domains.n_init, c.openai.max_workers = 6, 3, 2
-    c.domains.projection.method, c.domains.projection.sample = "tsne", 200
-    c.raw["figures"]["fig2d_firms"] = []
     monkeypatch.setattr(llm, "get_client", lambda cfg: FakeClient())
 
     rng = np.random.default_rng(0)
@@ -166,24 +162,3 @@ def test_pipeline_offline(cfg):
     firm = link.firm_profiles(cfg).set_index("cik").loc[p["cik"], keys].to_numpy(float)
     rule = rs.set_index("document_number").loc[p["document_number"], keys].to_numpy(float)
     assert np.allclose(firm * rule / 100, p[keys].to_numpy(float), atol=1e-3)
-
-    # figure inputs are built from the pipeline outputs
-    F = cfg.raw["figures"]
-    rid = rs["document_number"].tolist()
-    F["focal_firm"] = {"cik": "0000000001", "year": 2015}
-    F["rule_a"], F["rule_d"], F["rule_b"] = ({"document_number": rid[i], "label": l} for i, l in ((0, "A"), (4, "D"), (1, "B")))
-    F["fig2c_firms"] = [{"cik": f"{j:010d}", "year": 2015, "name": f"F{j}"} for j in (1, 2)]
-    F["fig2c_rules"] = [{"document_number": rid[i], "name": f"R{i}"} for i in (0, 1)]
-    C = figures.figure_config(cfg)
-    figures.export_inputs(cfg, C, cfg.paths.figures_input)
-    D = load_data(cfg.paths.figures_input)
-    assert D.K == 4 and len(D.pair_similarity) >= 80
-
-
-def test_figures_demo(tmp_path):
-    cfg = load_config()
-    cfg.paths.figures_input = tmp_path / "fi"
-    cfg.paths.figures_input.mkdir()
-    figures.run(cfg, demo=True, out=tmp_path / "out", formats=("png",))
-    assert (tmp_path / "out" / "Figure1_exposure_measurement.png").exists()
-    assert (tmp_path / "out" / "Figure2_text_embeddings.png").exists()

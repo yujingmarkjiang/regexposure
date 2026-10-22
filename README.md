@@ -16,7 +16,7 @@ Every step that reads text runs through the OpenAI API:
 
 | Task | OpenAI API endpoint | Model |
 | :--- | :--- | :--- |
-| Locate and clean Item 1 / Item 1A | `POST /v1/responses` | **GPT-5.6 Terra** (`gpt-5.6-terra`) |
+| Locate and clean Item 1 / Item 1A | `POST /v1/responses` | **GPT-5.6 Terra** |
 | Name the 20 clusters | `POST /v1/responses` | **GPT-5.6 Terra** |
 | Rate every rule and 10-K section | `POST /v1/responses` | **GPT-5.6 Terra** |
 | Embed every rule and 10-K section (3,072 dimensions) | `POST /v1/embeddings` | **text-embedding-3-large** |
@@ -34,7 +34,6 @@ Every step that reads text runs through the OpenAI API:
 - [Outputs](#outputs)
 - [Reproducibility and traceability](#reproducibility-and-traceability)
 - [Cost and scale](#cost-and-scale)
-- [Figures](#figures)
 - [Choices to report in the paper](#choices-to-report-in-the-paper)
 - [Repository layout](#repository-layout)
 
@@ -60,7 +59,6 @@ Check the code without an API key:
 
 ```bash
 pytest -q                             # tests with a fake OpenAI client
-python run.py figures --demo          # figures from simulated inputs
 ```
 
 ---
@@ -77,7 +75,6 @@ flowchart LR
     SCO --> LNK["Link<br/>exposure = firm × rule / 100<br/>+ cosine similarity"]
     EMB --> LNK
     LNK --> OUT["Firm-year-domain and<br/>firm-agency-year measures"]
-    OUT --> FIG["Figures 1 and 2"]
 ```
 
 | # | Command | What it does | Uses | Writes to `data/` |
@@ -89,7 +86,6 @@ flowchart LR
 | 5 | `domains` | Clusters both corpora into 20 domains and names each one | k-means · GPT-5.6 Terra | `processed/domains/` |
 | 6 | `score` | Rates every rule and every section on the 20 domains (0–100) | GPT-5.6 Terra | `processed/scores/` |
 | 7 | `link` | Exposure, similarity, firm-year and firm-agency-year measures | — | `processed/exposure/` |
-| 8 | `figures` | Figures 1 and 2 | — | `figures_out/` |
 
 ---
 
@@ -122,8 +118,7 @@ python run.py embed             # 4  embeddings                (text-embedding-3
 python run.py domains           # 5  20 domains + labels       (GPT-5.6 Terra)
 python run.py score             # 6  domain scores 0-100       (GPT-5.6 Terra)
 python run.py link              # 7  exposure and firm-level measures
-python run.py figures           # 8  Figures 1 and 2
-python run.py all               #    steps 1-8 in order
+python run.py all               #    steps 1-7 in order
 ```
 
 | Option | Applies to | Effect |
@@ -131,7 +126,6 @@ python run.py all               #    steps 1-8 in order
 | `--limit N` | `extract`, `score` | Process only the first N items (pilot runs) |
 | `--corpus rules\|sections` | `embed`, `score` | Run one corpus only |
 | `--dry-run` | `score` | Count tokens and estimate cost; no API calls |
-| `--demo` | `figures` | Use simulated figure inputs |
 | `--config PATH` | all | Use another configuration file |
 
 `python run.py endpoints` prints the OpenAI API endpoint and model each step uses with the
@@ -213,10 +207,9 @@ data/
 │   ├── extract_raw.jsonl                  every extraction answer
 │   └── embeddings/                        rules_*.npy, sections_*.npy (+ id CSVs)
 ├── processed/
-│   ├── domains/                           cluster_labels.csv, assignments.parquet, projection.csv
+│   ├── domains/                           cluster_labels.csv, assignments.parquet
 │   ├── scores/                            rule_scores.parquet, section_scores.parquet, *_raw.jsonl
-│   ├── exposure/                          pairs/, firm_year_domain.parquet, firm_agency_year.parquet
-│   └── figures_input/                     the eight CSVs read by the figure code
+│   └── exposure/                          pairs/, firm_year_domain.parquet, firm_agency_year.parquet
 └── logs/
     ├── embeddings_requests.jsonl          every embedding request: endpoint, documents, tokens
     └── batches/                           Batch API state, for resuming
@@ -249,7 +242,7 @@ for the domain names. Link firms to Compustat or CRSP through the CIK.
 | SHA-256 of each scored text (`text_sha256`) | every scoring record |
 | Every model answer, with endpoint, OpenAI response id (or batch id), usage and time | `interim/extract_raw.jsonl`, `processed/domains/label_raw.jsonl`, `processed/scores/rules_raw.jsonl`, `processed/scores/sections_raw.jsonl` |
 | Every embedding request, with endpoint, documents, token count and time | `logs/embeddings_requests.jsonl` |
-| Clustering and projection seed | `domains.seed` |
+| Clustering seed | `domains.seed` |
 
 - **Fixed settings.** Outputs are constrained to a JSON schema (structured outputs), and
   reasoning effort is fixed per step. With `store: false`, OpenAI does not keep responses
@@ -275,36 +268,6 @@ for the domain names. Link firms to Compustat or CRSP through the CIK.
 
 ---
 
-## Figures
-
-```bash
-python run.py figures --demo     # simulated inputs, to check the layout
-python run.py figures            # from your pipeline outputs
-```
-
-Figures are written to `figures_out/` as PDF, SVG and 600-dpi PNG. Before running on real
-data, edit the `figures:` block of `config.yaml`:
-
-| Setting | What to choose |
-| :--- | :--- |
-| `focal_firm` | The firm-year shown throughout both figures |
-| `rule_a` | A rule that clearly applies to the focal firm |
-| `rule_d` | A rule in the same domain with similar overlap but a weaker wording match |
-| `rule_b` | An unrelated rule |
-| `fig2c_firms`, `fig2c_rules` | Firms and rules for the Figure 2c matrix |
-| `fig1b_highlight`, `fig2d_highlight` | Domains to colour; must match labels in `cluster_labels.csv` |
-
-The export step (`regexposure/figures/make.py`) builds the eight figure-input CSVs in
-`data/processed/figures_input/` from the pipeline outputs.
-
-- **Only scored rules enter the figures.** A rule whose scoring failed would otherwise look
-  like a zero-overlap pair and distort Figure 2e–j. The figure step leaves such rules out and
-  prints how many it dropped; re-run `score` to fill them in.
-- **Missing years are gaps.** Years in which the focal firm has no scored 10-K appear as gaps
-  in Figure 1e, not as zeros.
-
----
-
 ## Choices to report in the paper
 
 The appendix describes these steps in general terms. The code implements them with the
@@ -323,8 +286,7 @@ settings below; all are configurable.
 | Joint rules in agency totals | Split equally across issuing agencies | `linking.agency_allocation` |
 
 > **After `run.py domains`**, check that the appendix's 20-row domain table matches
-> `data/processed/domains/cluster_labels.csv`, and that the short labels printed on the
-> Figure 1c rows (`short_label`) are the ones you want.
+> `data/processed/domains/cluster_labels.csv`.
 
 ---
 
@@ -333,7 +295,7 @@ settings below; all are configurable.
 ```text
 regexposure/
 ├── run.py                        command-line entry point for every step
-├── config.yaml                   all settings: models, data, steps, figures
+├── config.yaml                   all settings: models, data, steps
 ├── requirements.txt
 ├── OpenAI.key                    your API key (git-ignored, never committed)
 │
@@ -347,17 +309,9 @@ regexposure/
 │   ├── edgar.py                  step 2   EDGAR 10-K download, firm-year assignment
 │   ├── extract.py                step 3   Item 1 / Item 1A location and cleaning
 │   ├── embed.py                  step 4   text-embedding-3-large
-│   ├── domains.py                step 5   clustering, cluster labels, 2-D projection
+│   ├── domains.py                step 5   clustering, cluster labels
 │   ├── score.py                  step 6   domain scoring
-│   ├── link.py                   step 7   exposure, similarity, aggregation
-│   │
-│   └── figures/                  step 8   Figures 1 and 2
-│       ├── make.py               export pipeline outputs, render figures
-│       ├── fig1.py               Figure 1, panels a-f
-│       ├── fig2.py               Figure 2, panels a-j
-│       ├── data.py               figure-input loader and checks
-│       ├── style.py              fonts, palette, layout helpers
-│       └── simulate.py           simulated demo inputs
+│   └── link.py                   step 7   exposure, similarity, aggregation
 │
 └── tests/
     ├── test_core.py              text utilities, prompts, exposure arithmetic

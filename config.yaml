@@ -11,7 +11,6 @@ project:
 openai:
   key_file: OpenAI.key                  # one line containing the API key; listed in .gitignore
   model: gpt-5.6-terra                  # GPT-5.6 Terra: extraction, cluster labels and domain scoring
-  display_name: GPT-5.6 Terra           # name printed in the figures
   embedding_model: text-embedding-3-large
   embedding_dim: 3072
   reasoning_effort:                     # one setting per step, identical for every document
@@ -66,9 +65,6 @@ domains:
   n_init: 10
   label_examples: 24                    # example texts the model reads per cluster
   label_chars_per_example: 1500
-  projection:
-    method: umap                        # umap (if installed) or tsne
-    sample: 20000
 
 scoring:
   tokenizer: o200k_base
@@ -83,60 +79,3 @@ linking:
   agency_allocation: equal_split        # joint rules split across agencies; or "full"
   store_pairs: positive                 # positive | all | none
   firm_chunk: 64
-
-# ----------------------------------------------------------------------------- Figures
-# Identifiers below are the demo values (python run.py figures --demo).
-# Replace them with real CIKs / document numbers / domain labels from your run.
-figures:
-  output_dir: figures_out
-  focal_firm: {cik: "0000000001", year: 2015}
-  rule_a: {document_number: "2015-01234", label: A}    # clearly applies to the focal firm
-  rule_d: {document_number: "2015-02345", label: D}    # same domain, weaker semantic match
-  rule_b: {document_number: "2015-03456", label: B}    # unrelated rule
-  fig1c_columns: ["Firm $f$\npharma", "Rule A\ndrug label.", "Rule B\naviation"]
-  fig1b_highlight: ["Healthcare & pharma", "Environment & climate", "Finance & securities",
-                    "Transportation", "Labor & employment", "Data privacy & AI"]
-  fig1b_max_points: 6000
-  fig1e_domains: ["Healthcare & pharma", "Product safety", "Consumer protection", "Data privacy & AI"]
-  fig1f_year: 2015
-  fig1f_top: 6
-  fig2a_firm_excerpt: ["\u201c\u2026develop and market", "prescription drugs\u2026\u201d"]
-  fig2a_rule_excerpt: ["\u201c\u2026labeling requirements", "for drug products\u2026\u201d"]
-  fig2c_firms:
-    - {cik: "0000000001", year: 2015, name: Pharmaceutical}
-    - {cik: "0000000002", year: 2015, name: Airline}
-    - {cik: "0000000003", year: 2015, name: Bank}
-    - {cik: "0000000004", year: 2015, name: Electric utility}
-    - {cik: "0000000005", year: 2015, name: Software}
-  fig2c_rules:
-    - {document_number: "2015-01234", name: Drug labeling}
-    - {document_number: "2015-03456", name: Aviation safety}
-    - {document_number: "2015-04567", name: Capital req.}
-    - {document_number: "2015-05678", name: Emission std.}
-    - {document_number: "2015-06789", name: Data privacy}
-  fig2d_highlight: ["Healthcare & pharma", "Transportation", "Finance & securities",
-                    "Environment & climate", "Technology & cyber"]
-  fig2d_firms:
-    - {cik: "0000000001", year: 2015, name: Pharma}
-    - {cik: "0000000002", year: 2015, name: Airline}
-    - {cik: "0000000003", year: 2015, name: Bank}
-    - {cik: "0000000004", year: 2015, name: Utility}
-    - {cik: "0000000005", year: 2015, name: Software}
-  fig2d_max_points: 1700
-  fig2f_cuts: [25, 50]
-  fig2g_threshold: 25
-  fig2h_max_points: 2600
-  fig2i_domain: "Healthcare & pharma"
-  fig2i_tol: 2.0
-  fig2i_n: 8
-  fig2i_title_chars: 30
-  fig2j_k: 100
-  rule_short_titles: {"2015-02345": "Hospital billing"}
-  domain_colors:
-    "Healthcare & pharma": "#0072B2"
-    "Environment & climate": "#009E73"
-    "Finance & securities": "#E69F00"
-    "Transportation": "#D55E00"
-    "Labor & employment": "#CC79A7"
-    "Data privacy & AI": "#56B4E9"
-    "Technology & cyber": "#56B4E9"

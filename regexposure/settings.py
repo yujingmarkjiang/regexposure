@@ -36,7 +36,6 @@ def load_config(path=None):
         domains=data / "processed" / "domains",
         scores=data / "processed" / "scores",
         exposure=data / "processed" / "exposure",
-        figures_input=data / "processed" / "figures_input",
         batches=data / "logs" / "batches",
         logs=data / "logs",
     )

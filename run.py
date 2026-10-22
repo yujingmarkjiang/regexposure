@@ -8,7 +8,6 @@
   python run.py domains                # clustering into 20 domains + GPT-5.6 Terra labels
   python run.py score [--dry-run]      # GPT-5.6 Terra rates rules and 10-K sections (0-100)
   python run.py link                   # exposure, similarity, firm-year and firm-agency-year measures
-  python run.py figures [--demo]       # Figures 1 and 2
   python run.py all                    # everything above, in order
   python run.py endpoints              # which OpenAI API endpoint and model each step uses
 
@@ -17,10 +16,9 @@ Every step is resumable: finished items are skipped when a step is run again.
 import argparse
 
 from regexposure import domains, edgar, embed, extract, fedreg, link, llm, score
-from regexposure.figures import make as figures
 from regexposure.settings import load_config
 
-STEPS = ["download-fr", "download-10k", "extract", "embed", "domains", "score", "link", "figures"]
+STEPS = ["download-fr", "download-10k", "extract", "embed", "domains", "score", "link"]
 
 
 def main():
@@ -30,7 +28,6 @@ def main():
     ap.add_argument("--corpus", choices=["rules", "sections", "both"], default="both", help="embed / score: which corpus")
     ap.add_argument("--limit", type=int, default=None, help="process only the first N items (pilot runs)")
     ap.add_argument("--dry-run", action="store_true", help="score: count tokens and estimate cost, no API calls")
-    ap.add_argument("--demo", action="store_true", help="figures: use simulated demo inputs")
     a = ap.parse_args()
     cfg = load_config(a.config)
     corpora = ["rules", "sections"] if a.corpus == "both" else [a.corpus]
@@ -59,8 +56,6 @@ def main():
                 score.run(cfg, c, limit=a.limit, dry_run=a.dry_run)
         elif step == "link":
             link.run(cfg)
-        elif step == "figures":
-            figures.run(cfg, demo=a.demo)
 
 
 if __name__ == "__main__":
