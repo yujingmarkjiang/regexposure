@@ -1,0 +1,15 @@
+# secrets -- never commit the API key
+OpenAI.key
+*.key
+.env
+
+# data and outputs (rebuild with run.py)
+data/
+figures_out/
+*.npy
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/

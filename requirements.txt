@@ -1,0 +1,13 @@
+openai>=2.30
+tiktoken>=0.8
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+pyyaml>=6.0
+numpy>=1.26
+pandas>=2.1
+pyarrow>=15.0
+scikit-learn>=1.4
+matplotlib>=3.8
+umap-learn>=0.5      # optional: 2-D projection for figures (falls back to t-SNE)
+pytest>=8.0          # tests only

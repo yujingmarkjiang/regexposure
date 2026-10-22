@@ -1,0 +1,142 @@
+# =============================================================================
+# Firm regulatory exposure from 10-K and Federal Register texts -- configuration
+# =============================================================================
+
+project:
+  data_dir: data
+  start_year: 2000
+  end_year: 2025
+
+# ----------------------------------------------------------------------------- OpenAI
+openai:
+  key_file: OpenAI.key                  # one line containing the API key; listed in .gitignore
+  model: gpt-5.6-terra                  # GPT-5.6 Terra: extraction, cluster labels and domain scoring
+  display_name: GPT-5.6 Terra           # name printed in the figures
+  embedding_model: text-embedding-3-large
+  embedding_dim: 3072
+  reasoning_effort:                     # one setting per step, identical for every document
+    extraction: low
+    labeling: medium
+    scoring: medium
+  max_output_tokens: 16000              # includes reasoning tokens
+  store: false                          # do not retain responses on OpenAI's side
+  max_workers: 8                        # parallel synchronous requests
+  max_retries: 6
+  timeout_s: 900
+  use_batch: false                      # true: OpenAI Batch API (lower price, results within 24 h)
+  batch_max_requests: 40000
+  batch_max_mb: 180
+  batch_poll_seconds: 120
+  price_per_million:                    # USD, for `score --dry-run` estimates; check current pricing
+    input: 2.50
+    output: 15.00
+
+# ----------------------------------------------------------------------------- Data
+sec:
+  user_agent: "Your Name your.email@example.edu"   # REQUIRED by the SEC: replace with your name and email
+  forms: ["10-K", "10-K405", "10-KSB", "10-KT"]
+  include_amendments: false
+  fiscal_year_rule: period_end_year     # or "compustat" (fiscal years ending Jan-May -> previous year)
+  requests_per_second: 8                # SEC fair-access limit is 10
+
+federal_register:
+  document_types: [RULE, PRORULE]       # final and proposed rules
+  download_workers: 4
+
+# ----------------------------------------------------------------------------- Steps
+extraction:                             # LLM-guided location and cleaning of Item 1 / Item 1A
+  max_heading_lines: 1500
+  max_repeated_lines: 80
+  min_section_chars: 500
+  chunk_size: 2000
+
+embedding:
+  tokenizer: cl100k_base                # tokenizer of text-embedding-3-large
+  max_tokens_per_chunk: 8000            # model limit is 8,191 tokens per input
+  max_inputs_per_request: 256
+  max_tokens_per_request: 250000
+  shard_size: 2000
+
+domains:
+  k: 20                                 # number of clusters = number of domains
+  seed: 42
+  fit_sample: 200000                    # documents used to fit the clustering
+  balance_corpora: true                 # equal numbers of rules and 10-K sections in the fit sample
+  pca_dims: 256
+  n_init: 10
+  label_examples: 24                    # example texts the model reads per cluster
+  label_chars_per_example: 1500
+  projection:
+    method: umap                        # umap (if installed) or tsne
+    sample: 20000
+
+scoring:
+  tokenizer: o200k_base
+  max_input_tokens: 400000              # longer texts are scored in parts; domain score = max over parts
+  part_overlap_tokens: 2000
+  chunk_size: 2000
+
+linking:
+  window_years_before: 2                # rules published in fiscal years t-2 ... t are paired with firm-year t
+  window_years_after: 0
+  firm_profile: max                     # Firm_{f,d} = max(Business, Risk Factors); or mean, business, risk
+  agency_allocation: equal_split        # joint rules split across agencies; or "full"
+  store_pairs: positive                 # positive | all | none
+  firm_chunk: 64
+
+# ----------------------------------------------------------------------------- Figures
+# Identifiers below are the demo values (python run.py figures --demo).
+# Replace them with real CIKs / document numbers / domain labels from your run.
+figures:
+  output_dir: figures_out
+  focal_firm: {cik: "0000000001", year: 2015}
+  rule_a: {document_number: "2015-01234", label: A}    # clearly applies to the focal firm
+  rule_d: {document_number: "2015-02345", label: D}    # same domain, weaker semantic match
+  rule_b: {document_number: "2015-03456", label: B}    # unrelated rule
+  fig1c_columns: ["Firm $f$\npharma", "Rule A\ndrug label.", "Rule B\naviation"]
+  fig1b_highlight: ["Healthcare & pharma", "Environment & climate", "Finance & securities",
+                    "Transportation", "Labor & employment", "Data privacy & AI"]
+  fig1b_max_points: 6000
+  fig1e_domains: ["Healthcare & pharma", "Product safety", "Consumer protection", "Data privacy & AI"]
+  fig1f_year: 2015
+  fig1f_top: 6
+  fig2a_firm_excerpt: ["\u201c\u2026develop and market", "prescription drugs\u2026\u201d"]
+  fig2a_rule_excerpt: ["\u201c\u2026labeling requirements", "for drug products\u2026\u201d"]
+  fig2c_firms:
+    - {cik: "0000000001", year: 2015, name: Pharmaceutical}
+    - {cik: "0000000002", year: 2015, name: Airline}
+    - {cik: "0000000003", year: 2015, name: Bank}
+    - {cik: "0000000004", year: 2015, name: Electric utility}
+    - {cik: "0000000005", year: 2015, name: Software}
+  fig2c_rules:
+    - {document_number: "2015-01234", name: Drug labeling}
+    - {document_number: "2015-03456", name: Aviation safety}
+    - {document_number: "2015-04567", name: Capital req.}
+    - {document_number: "2015-05678", name: Emission std.}
+    - {document_number: "2015-06789", name: Data privacy}
+  fig2d_highlight: ["Healthcare & pharma", "Transportation", "Finance & securities",
+                    "Environment & climate", "Technology & cyber"]
+  fig2d_firms:
+    - {cik: "0000000001", year: 2015, name: Pharma}
+    - {cik: "0000000002", year: 2015, name: Airline}
+    - {cik: "0000000003", year: 2015, name: Bank}
+    - {cik: "0000000004", year: 2015, name: Utility}
+    - {cik: "0000000005", year: 2015, name: Software}
+  fig2d_max_points: 1700
+  fig2f_cuts: [25, 50]
+  fig2g_threshold: 25
+  fig2h_max_points: 2600
+  fig2i_domain: "Healthcare & pharma"
+  fig2i_tol: 2.0
+  fig2i_n: 8
+  fig2i_title_chars: 30
+  fig2j_k: 100
+  rule_short_titles: {"2015-02345": "Hospital billing"}
+  domain_colors:
+    "Healthcare & pharma": "#0072B2"
+    "Environment & climate": "#009E73"
+    "Finance & securities": "#E69F00"
+    "Transportation": "#D55E00"
+    "Labor & employment": "#CC79A7"
+    "Data privacy & AI": "#56B4E9"
+    "Technology & cyber": "#56B4E9"
